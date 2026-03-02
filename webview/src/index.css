@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+:root {
+  --bg: var(--vscode-editor-background, #1e1e1e);
+  --fg: var(--vscode-editor-foreground, #cccccc);
+  --border: var(--vscode-panel-border, #333333);
+  --accent: var(--vscode-focusBorder, #007acc);
+  --sidebar-bg: var(--vscode-sideBar-background, #252526);
+  --input-bg: var(--vscode-input-background, #3c3c3c);
+  --button-bg: var(--vscode-button-background, #0e639c);
+  --button-fg: var(--vscode-button-foreground, #ffffff);
+  --hover-bg: var(--vscode-list-hoverBackground, #2a2d2e);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}

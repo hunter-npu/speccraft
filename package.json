@@ -1,0 +1,96 @@
+{
+  "name": "speccraft",
+  "displayName": "SpecCraft",
+  "description": "LLM-assisted software specification editor",
+  "version": "0.1.0",
+  "publisher": "speccraft",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "activationEvents": [
+    "onView:speccraft.assistant",
+    "onLanguage:markdown",
+    "workspaceContains:**/*.spec.md"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "speccraft.newSpec",
+        "title": "SpecCraft: New Specification"
+      },
+      {
+        "command": "speccraft.gitCommit",
+        "title": "SpecCraft: Commit Version"
+      },
+      {
+        "command": "speccraft.gitLog",
+        "title": "SpecCraft: View Version History"
+      },
+      {
+        "command": "speccraft.configLLM",
+        "title": "SpecCraft: Configure LLM"
+      },
+      {
+        "command": "speccraft.refineSelection",
+        "title": "SpecCraft: AI 润色选中内容"
+      },
+      {
+        "command": "speccraft.addSiblingRequirement",
+        "title": "SpecCraft: 新增同级需求"
+      },
+      {
+        "command": "speccraft.addChildRequirement",
+        "title": "SpecCraft: 新增下级需求"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "speccraft-sidebar",
+          "title": "SpecCraft",
+          "icon": "$(notebook)"
+        }
+      ]
+    },
+    "views": {
+      "speccraft-sidebar": [
+        {
+          "type": "webview",
+          "id": "speccraft.assistant",
+          "name": "SpecCraft Assistant"
+        }
+      ]
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "speccraft.refineSelection",
+          "when": "editorHasSelection && resourceExtname == '.md'",
+          "group": "speccraft@1"
+        },
+        {
+          "command": "speccraft.addSiblingRequirement",
+          "when": "editorTextFocus && resourceExtname == '.md'",
+          "group": "speccraft@2"
+        },
+        {
+          "command": "speccraft.addChildRequirement",
+          "when": "editorTextFocus && resourceExtname == '.md'",
+          "group": "speccraft@3"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "package": "npx vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.20.0",
+    "typescript": "~5.6.0"
+  }
+}
