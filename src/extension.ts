@@ -127,6 +127,66 @@ function renumberRequirementsInText(text: string, prefix: string): string {
 }
 
 /**
+ * Renumber ALL requirement headings in a spec document in document order:
+ *   #### PREFIX-NNN:     → sequential, 3-digit zero-padded, per prefix
+ *   ##### PREFIX-NNN-MM: → sequential within parent, 2-digit zero-padded
+ * Heading depth, order, title text, and body content are never modified.
+ */
+function renumberAllRequirements(text: string, eol: string): string {
+  // Strip \r so we can work with plain \n lines regardless of original EOL
+  const lines = text.split('\n').map(l => l.replace(/\r$/, ''));
+
+  const PFX = 'FR|NFR|DR|UIR';
+  const parentRe = new RegExp(`^(#{4}\\s+)((?:${PFX})-\\d+)(:.*)$`);
+  const childRe  = new RegExp(`^(#{5}\\s+)((?:${PFX})-\\d+-\\d+)(:.*)$`);
+
+  const parentCounters: Record<string, number> = {};
+  const childCounters:  Record<string, number> = {};
+  const oldToNew = new Map<string, string>();
+
+  // Pass 1 — build old → new mapping in document order
+  for (const line of lines) {
+    const pm = line.match(parentRe);
+    if (pm) {
+      const oldId = pm[2];
+      const prefix = oldId.replace(/-\d+$/, '');
+      parentCounters[prefix] = (parentCounters[prefix] ?? 0) + 1;
+      const newId = `${prefix}-${String(parentCounters[prefix]).padStart(3, '0')}`;
+      if (oldId !== newId) { oldToNew.set(oldId, newId); }
+      continue;
+    }
+    const cm = line.match(childRe);
+    if (cm) {
+      const oldChildId  = cm[2];
+      const oldParentId = oldChildId.replace(/-\d+$/, '');
+      const newParentId = oldToNew.get(oldParentId) ?? oldParentId;
+      childCounters[newParentId] = (childCounters[newParentId] ?? 0) + 1;
+      const newChildId = `${newParentId}-${String(childCounters[newParentId]).padStart(2, '0')}`;
+      if (oldChildId !== newChildId) { oldToNew.set(oldChildId, newChildId); }
+    }
+  }
+
+  if (oldToNew.size === 0) { return text; }
+
+  // Pass 2 — apply replacements line by line
+  const result = lines.map(line => {
+    const pm = line.match(parentRe);
+    if (pm) {
+      const newId = oldToNew.get(pm[2]);
+      return newId ? `${pm[1]}${newId}${pm[3]}` : line;
+    }
+    const cm = line.match(childRe);
+    if (cm) {
+      const newChildId = oldToNew.get(cm[2]);
+      return newChildId ? `${cm[1]}${newChildId}${cm[3]}` : line;
+    }
+    return line;
+  });
+
+  return result.join(eol);
+}
+
+/**
  * Show a centered modal dialog (WebviewPanel) with a textarea, OK and Cancel buttons.
  * Returns the user's input string, or undefined if cancelled.
  */
@@ -656,11 +716,27 @@ export function activate(context: vscode.ExtensionContext): void {
       });
       if (!picked) return;
 
+      // Step 3: English filename
+      const autoSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'new-spec';
+      const slug = await vscode.window.showInputBox({
+        title: '英文文件名',
+        prompt: '文件将保存为 {name}.spec.md，只能包含小写字母、数字和连字符',
+        value: autoSlug,
+        validateInput: (v) => {
+          if (!v) { return '文件名不能为空'; }
+          if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(v)) {
+            return '只能包含小写字母、数字和连字符，且不能以连字符开头或结尾';
+          }
+          return null;
+        },
+      });
+      if (!slug) return;
+
       try {
-        const specFile = await specProvider.createSpec(title, picked.value);
+        const specFile = await specProvider.createSpec(title, picked.value, slug);
         await specProvider.openSpecInEditor(specFile.mdPath);
         sidebarProvider.postMessage({ type: 'SPEC_LIST_LOADED', payload: { specs: await specProvider.listSpecs() } });
-        vscode.window.showInformationMessage(`SpecCraft: Created "${title}" (${SPEC_TEMPLATE_LABELS[picked.value]})`);
+        vscode.window.showInformationMessage(`SpecCraft: Created "${title}" (${SPEC_TEMPLATE_LABELS[picked.value]}) → ${slug}.spec.md`);
       } catch (err) {
         vscode.window.showErrorMessage(`SpecCraft: ${(err as Error).message}`);
       }
@@ -738,6 +814,37 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       const selectedText = editor.document.getText(selection);
       showRefineDialog({ selectedText, editor, selection, llmService });
+    })
+  );
+
+  // ── Command: Renumber All Requirements ───────────────────────────────────────
+  context.subscriptions.push(
+    vscode.commands.registerCommand('speccraft.renumberSpec', async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor || !editor.document.fileName.endsWith('.spec.md')) {
+        vscode.window.showWarningMessage('SpecCraft: 此命令仅适用于 .spec.md 文件。');
+        return;
+      }
+
+      const document = editor.document;
+      const text = document.getText();
+      const eol = document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
+      const result = renumberAllRequirements(text, eol);
+
+      if (result === text) {
+        vscode.window.showInformationMessage('SpecCraft: 编号已是最新，无需调整。');
+        return;
+      }
+
+      const lineCount = document.lineCount;
+      const fullRange = new vscode.Range(
+        new vscode.Position(0, 0),
+        document.lineAt(lineCount - 1).range.end
+      );
+      const edit = new vscode.WorkspaceEdit();
+      edit.replace(document.uri, fullRange, result);
+      await vscode.workspace.applyEdit(edit);
+      vscode.window.showInformationMessage('SpecCraft: 规范编号已重新整理完成 ✓');
     })
   );
 

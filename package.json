@@ -41,6 +41,10 @@
       {
         "command": "speccraft.addChildRequirement",
         "title": "SpecCraft: 新增下级需求"
+      },
+      {
+        "command": "speccraft.renumberSpec",
+        "title": "SpecCraft: 规范编号"
       }
     ],
     "viewsContainers": {
@@ -77,6 +81,11 @@
           "command": "speccraft.addChildRequirement",
           "when": "editorTextFocus && resourceExtname == '.md'",
           "group": "speccraft@3"
+        },
+        {
+          "command": "speccraft.renumberSpec",
+          "when": "editorTextFocus && resourceExtname == '.md'",
+          "group": "speccraft@4"
         }
       ]
     }

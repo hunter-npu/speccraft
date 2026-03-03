@@ -1037,13 +1037,15 @@ export class SpecFileProvider {
     }
   }
 
-  async createSpec(title: string, templateType: SpecTemplateType = 'web'): Promise<SpecFile> {
+  async createSpec(title: string, templateType: SpecTemplateType = 'web', slug?: string): Promise<SpecFile> {
     const specDir = await this.ensureSpecDir();
     if (!specDir) throw new Error('No workspace folder open');
 
     const specId = `spec-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    const mdPath = path.join(specDir, `${slug}.spec.md`);
+    const effectiveSlug = slug?.trim()
+      || title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+      || `spec-${Date.now()}`;
+    const mdPath = path.join(specDir, `${effectiveSlug}.spec.md`);
     const now = new Date().toISOString();
 
     const meta: SpecMeta = { specId, title, version: '1.0.0', created: now, updated: now };
