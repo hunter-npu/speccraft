@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { SpecFileProvider } from './SpecFileProvider';
+import { SpecFileProvider, SpecTemplateType, SPEC_TEMPLATE_LABELS } from './SpecFileProvider';
 import { GitService } from './GitService';
 import { LLMConfigProvider } from './LLMConfigProvider';
 import { LLMService } from './LLMService';
@@ -642,11 +642,25 @@ export function activate(context: vscode.ExtensionContext): void {
       });
       if (!title) return;
 
+      const typeItems: (vscode.QuickPickItem & { value: SpecTemplateType })[] = [
+        { label: '$(globe) Web 应用',           description: '前后端分离 / SPA / SSR / PWA',       value: 'web'      },
+        { label: '$(device-desktop) 桌面应用（跨平台）', description: 'Electron / Tauri / Qt',       value: 'desktop'  },
+        { label: '$(window) Windows 应用',       description: 'WPF / WinForms / WinUI 3',            value: 'windows'  },
+        { label: '$(circuit-board) 嵌入式软件',  description: 'MCU / RTOS / 裸机系统',               value: 'embedded' },
+      ];
+
+      const picked = await vscode.window.showQuickPick(typeItems, {
+        title: '选择软件类型',
+        placeHolder: '选择软件系统类型以生成对应规格模板',
+        matchOnDescription: true,
+      });
+      if (!picked) return;
+
       try {
-        const specFile = await specProvider.createSpec(title);
+        const specFile = await specProvider.createSpec(title, picked.value);
         await specProvider.openSpecInEditor(specFile.mdPath);
         sidebarProvider.postMessage({ type: 'SPEC_LIST_LOADED', payload: { specs: await specProvider.listSpecs() } });
-        vscode.window.showInformationMessage(`SpecCraft: Created "${title}"`);
+        vscode.window.showInformationMessage(`SpecCraft: Created "${title}" (${SPEC_TEMPLATE_LABELS[picked.value]})`);
       } catch (err) {
         vscode.window.showErrorMessage(`SpecCraft: ${(err as Error).message}`);
       }
@@ -812,7 +826,7 @@ export function activate(context: vscode.ExtensionContext): void {
         if (childRe.test(document.lineAt(i).text)) { childCount++; }
       }
 
-      const childId = `${req.id}-${childCount + 1}`;
+      const childId = `${req.id}-${String(childCount + 1).padStart(2, '0')}`;
 
       const insertOffset = req.insertionLine < lineCount
         ? document.offsetAt(new vscode.Position(req.insertionLine, 0))

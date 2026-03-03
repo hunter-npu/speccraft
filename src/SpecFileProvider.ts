@@ -3,47 +3,28 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import type { SpecJson, SpecFile, SpecMeta } from './types';
 
-function getWorkspaceRoot(): string | null {
-  const folders = vscode.workspace.workspaceFolders;
-  return folders?.[0]?.uri.fsPath ?? null;
-}
+// ── Template type system ──────────────────────────────────────────────────────
 
-function getSpecDir(root: string): string {
-  return path.join(root, '.speccraft');
-}
+export type SpecTemplateType = 'web' | 'desktop' | 'windows' | 'embedded';
 
-function buildFrontmatter(meta: SpecMeta): string {
-  return `---
-specId: ${meta.specId}
-title: ${meta.title}
-version: ${meta.version}
-created: ${meta.created}
-updated: ${meta.updated}
----\n\n`;
-}
+export const SPEC_TEMPLATE_LABELS: Record<SpecTemplateType, string> = {
+  web:      'Web 应用',
+  desktop:  '桌面应用（跨平台）',
+  windows:  'Windows 应用',
+  embedded: '嵌入式软件',
+};
 
-function parseFrontmatter(content: string): { meta: Partial<SpecMeta>; body: string } {
-  const match = content.match(/^---\n([\s\S]*?)\n---\n\n?([\s\S]*)$/);
-  if (!match) return { meta: {}, body: content };
+// ── Templates ─────────────────────────────────────────────────────────────────
 
-  const fmText = match[1];
-  const body = match[2];
-  const meta: Partial<SpecMeta> = {};
-
-  for (const line of fmText.split('\n')) {
-    const [key, ...rest] = line.split(':');
-    if (key && rest.length) {
-      const value = rest.join(':').trim();
-      (meta as Record<string, string>)[key.trim()] = value;
-    }
-  }
-
-  return { meta, body };
-}
-
-const DEFAULT_MD_TEMPLATE = (title: string) => `# ${title}
+const WEB_APP_TEMPLATE = (title: string): string => `# ${title}
 
 ## 一、项目概述
+
+**名称**：（软件系统的完整名称）
+
+**简称**：（项目代号或缩写，用于文档标识）
+
+**软件类型**：Web 应用
 
 **背景**：（描述项目产生的背景及现存的问题）
 
@@ -67,6 +48,12 @@ const DEFAULT_MD_TEMPLATE = (title: string) => `# ${title}
 **主流程**：
 
 **异常处理**：
+
+##### FR-001-01: （子功能名称）
+（详细描述该子功能，或该功能在特定场景下的行为细节）
+
+##### FR-001-02: （子功能名称）
+（详细描述该子功能，或该功能在特定场景下的行为细节）
 
 ### 2.2 （功能模块名称）
 
@@ -326,6 +313,677 @@ const DEFAULT_MD_TEMPLATE = (title: string) => `# ${title}
 - [ ] 用户手册（如需）
 `;
 
+// ── Desktop App (cross-platform) ──────────────────────────────────────────────
+
+const DESKTOP_APP_TEMPLATE = (title: string): string => `# ${title}
+
+## 一、项目概述
+
+**名称**：（软件系统的完整名称）
+
+**简称**：（项目代号或缩写，用于文档标识）
+
+**软件类型**：桌面应用（跨平台）
+
+**支持平台**：（Windows / macOS / Linux）
+
+**背景**：
+
+**目标**：
+
+**用户群体**：
+
+**范围说明**：
+
+---
+
+## 二、功能需求
+
+### 2.1 （功能模块名称）
+
+#### FR-001: （功能名称）
+（描述该功能的具体行为和预期结果）
+
+**触发条件**：
+
+**主流程**：
+
+**异常处理**：
+
+##### FR-001-01: （子功能名称）
+（详细描述该子功能，或该功能在特定场景下的行为细节）
+
+### 2.2 （功能模块名称）
+
+#### FR-002: （功能名称）
+（描述该功能的具体行为和预期结果）
+
+---
+
+## 三、非功能需求
+
+### 3.1 性能要求
+
+#### NFR-001: 启动性能
+- 冷启动时间 ≤ 3 秒
+- 热启动时间 ≤ 1 秒
+
+#### NFR-002: 资源占用
+- 空闲内存占用 ≤ ____ MB
+- CPU 占用（空闲时）≤ ____%
+
+### 3.2 兼容性
+
+#### NFR-003: 平台兼容性
+- Windows：10 / 11（x64）
+- macOS：12+（Intel / Apple Silicon）
+- Linux：Ubuntu 20.04+
+
+#### NFR-004: 显示适配
+- 支持 HiDPI / Retina 屏幕
+- 最低分辨率：1280 × 720
+
+### 3.3 可靠性
+
+#### NFR-005: 稳定性
+- 7 日崩溃率 ≤ 0.1%
+- 自动保存与会话恢复
+
+### 3.4 安全性
+
+#### NFR-006: 本地数据保护
+- 敏感数据使用系统密钥链加密（Keychain / Credential Manager）
+- 自动更新包签名验证
+
+---
+
+## 四、设计要求
+
+### 4.1 技术选型
+
+#### DR-001: 应用框架
+- 框架：（例：Electron / Tauri / Qt / Flutter Desktop）
+- 语言：
+- UI 框架：
+
+#### DR-002: 数据存储
+- 本地数据库：（例：SQLite / LevelDB）
+- 配置格式：（例：JSON / TOML）
+- 云同步方案（如需）：
+
+#### DR-003: 打包与分发
+- 安装包格式：（例：NSIS / MSI / DMG / AppImage）
+- 自动更新方案：（例：electron-updater）
+- 代码签名：
+
+### 4.2 系统架构
+
+#### DR-004: 整体架构
+（描述主进程 / 渲染进程 / 后台服务的职责划分及通信机制）
+
+#### DR-005: 模块划分
+
+| 模块名 | 职责描述 | 对外接口 |
+|--------|----------|----------|
+| （模块 A） | （职责） | （接口） |
+
+### 4.3 数据设计
+
+#### DR-006: 本地数据模型
+（描述主要数据结构和存储方式）
+
+#### DR-007: 数据同步策略（如需）
+- 同步触发机制：
+- 冲突解决策略：
+
+---
+
+## 五、界面要求
+
+### 5.1 视觉规范
+
+#### UIR-001: 整体风格
+- 风格：（原生系统风格 / 自定义设计语言）
+- 主题：（支持深色 / 浅色模式）
+- 字体规范：
+
+#### UIR-002: 窗口与布局
+- 默认窗口尺寸：____ × ____
+- 最小窗口尺寸：____ × ____
+- 布局模式：（单窗口 / 多窗口 / MDI）
+
+### 5.2 交互规范
+
+#### UIR-003: 键盘与快捷键
+- 常用操作需提供键盘快捷键
+- 快捷键规范遵循目标平台惯例（macOS Command / Windows Ctrl）
+
+#### UIR-004: 系统集成
+- 系统托盘：（是 / 否）
+- 文件关联：（关联扩展名：）
+- 右键菜单集成：
+
+### 5.3 关键页面与流程
+
+#### UIR-005: 主界面布局
+（描述主窗口的布局结构和功能区划分）
+
+#### UIR-006: 核心用户流程
+
+**流程 1：（流程名称）**
+步骤 1 → 步骤 2 → 步骤 3 → 预期结果
+
+---
+
+## 六、约束条件
+
+### 6.1 技术约束
+-
+
+### 6.2 合规约束
+- 应用商店规范（如需上架 Microsoft Store / Mac App Store）
+
+### 6.3 资源约束
+- 开发团队规模：
+- 关键里程碑：
+
+---
+
+## 七、验收标准
+
+### 7.1 功能验收
+- 所有 FR 条目对应测试用例通过率 100%
+
+### 7.2 性能验收
+- 满足第三章各项性能指标
+
+### 7.3 交付物清单
+- [ ] 各平台安装包
+- [ ] 源代码（含测试）
+- [ ] 部署 / 安装文档
+- [ ] 用户手册
+`;
+
+// ── Windows App ───────────────────────────────────────────────────────────────
+
+const WINDOWS_APP_TEMPLATE = (title: string): string => `# ${title}
+
+## 一、项目概述
+
+**名称**：（软件系统的完整名称）
+
+**简称**：（项目代号或缩写，用于文档标识）
+
+**软件类型**：Windows 应用
+
+**最低 Windows 版本**：（例：Windows 10 1903+）
+
+**背景**：
+
+**目标**：
+
+**用户群体**：
+
+**范围说明**：
+
+---
+
+## 二、功能需求
+
+### 2.1 （功能模块名称）
+
+#### FR-001: （功能名称）
+（描述该功能的具体行为和预期结果）
+
+**触发条件**：
+
+**主流程**：
+
+**异常处理**：
+
+##### FR-001-01: （子功能名称）
+（详细描述该子功能，或该功能在特定场景下的行为细节）
+
+### 2.2 （功能模块名称）
+
+#### FR-002: （功能名称）
+（描述该功能的具体行为和预期结果）
+
+---
+
+## 三、非功能需求
+
+### 3.1 性能要求
+
+#### NFR-001: 启动与响应
+- 冷启动时间 ≤ 3 秒
+- UI 操作响应时间 ≤ 200 ms
+
+#### NFR-002: 资源占用
+- 空闲内存占用 ≤ ____ MB
+- 安装包大小 ≤ ____ MB
+
+### 3.2 兼容性
+
+#### NFR-003: Windows 版本兼容
+- 目标版本：Windows 10 / 11（x64）
+- .NET / C++ 运行时版本依赖：
+
+#### NFR-004: 显示适配
+- 支持 DPI 缩放（96 / 120 / 144 / 192 DPI）
+- 最低分辨率：1280 × 720
+
+### 3.3 可靠性
+
+#### NFR-005: 稳定性
+- 7 日崩溃率 ≤ 0.1%
+- 崩溃报告上报机制
+
+### 3.4 安全性
+
+#### NFR-006: 权限与签名
+- 代码签名（Authenticode）
+- 最小权限原则（UAC 级别：标准用户 / 管理员）
+- 敏感数据使用 Windows Credential Manager 或 DPAPI
+
+---
+
+## 四、设计要求
+
+### 4.1 技术选型
+
+#### DR-001: UI 框架
+- 框架：（例：WPF / WinForms / WinUI 3 / MAUI）
+- 语言：（C# / C++ / VB.NET）
+- .NET 版本：
+
+#### DR-002: 数据存储
+- 本地存储：（例：SQLite / SQL Server LocalDB / 注册表 / 文件系统）
+- 配置存储位置：（%AppData% / %LocalAppData% / 注册表）
+
+#### DR-003: 打包与分发
+- 安装包格式：（例：MSIX / MSI / InnoSetup / ClickOnce）
+- 更新机制：（例：MSIX 自动更新 / 自定义更新检查）
+- 代码签名证书：
+
+### 4.2 系统架构
+
+#### DR-004: 整体架构
+（描述 UI 层 / 业务逻辑层 / 数据层的职责划分，例：MVVM / MVP）
+
+#### DR-005: Windows 系统集成
+
+| 集成点 | 说明 |
+|--------|------|
+| 注册表 | （读写路径及用途） |
+| 文件关联 | （关联扩展名） |
+| 系统托盘 | （是 / 否） |
+| 任务计划 / 服务 | （是 / 否） |
+| COM / OLE | （是 / 否） |
+
+### 4.3 数据设计
+
+#### DR-006: 本地数据模型
+（描述主要数据结构和存储位置）
+
+---
+
+## 五、界面要求
+
+### 5.1 视觉规范
+
+#### UIR-001: 整体风格
+- 设计语言：（Fluent Design / 传统 Win32 风格 / 自定义）
+- 主题：（深色 / 浅色 / 跟随系统）
+
+#### UIR-002: 窗口布局
+- 主窗口尺寸：____ × ____（默认），____ × ____（最小）
+- 菜单结构：（菜单栏 / Ribbon / 上下文菜单）
+
+### 5.2 交互规范
+
+#### UIR-003: 键盘快捷键
+- 遵循 Windows 标准键盘快捷键规范
+- 自定义快捷键列表：
+
+#### UIR-004: 辅助功能（Accessibility）
+- 支持 Windows 讲述人（Screen Reader）
+- 支持高对比度模式
+- 所有控件支持键盘导航
+
+### 5.3 关键页面与流程
+
+#### UIR-005: 主界面布局
+（描述主窗口的功能区划分）
+
+#### UIR-006: 核心用户流程
+
+**流程 1：（流程名称）**
+步骤 1 → 步骤 2 → 步骤 3 → 预期结果
+
+---
+
+## 六、约束条件
+
+### 6.1 技术约束
+-
+
+### 6.2 合规约束
+- Microsoft Store 审核规范（如需上架）
+- 企业部署策略（ADMX / GPO，如需）
+
+### 6.3 资源约束
+- 开发团队规模：
+- 关键里程碑：
+
+---
+
+## 七、验收标准
+
+### 7.1 功能验收
+- 所有 FR 条目对应测试用例通过率 100%
+
+### 7.2 性能验收
+- 满足第三章各项性能指标
+
+### 7.3 交付物清单
+- [ ] 安装包（MSIX / MSI）
+- [ ] 源代码（含测试）
+- [ ] 安装 / 部署文档
+- [ ] 用户手册
+`;
+
+// ── Embedded Software ─────────────────────────────────────────────────────────
+
+const EMBEDDED_APP_TEMPLATE = (title: string): string => `# ${title}
+
+## 一、项目概述
+
+**名称**：（软件系统的完整名称）
+
+**简称**：（项目代号或缩写，用于文档标识）
+
+**软件类型**：嵌入式软件
+
+**目标硬件平台**：（MCU/CPU 型号，例：STM32F4 / ESP32 / i.MX8）
+
+**操作系统 / 运行环境**：（例：裸机 / FreeRTOS / Linux / Zephyr）
+
+**背景**：
+
+**目标**：
+
+**用户群体**：（使用该嵌入式设备的终端用户 / 维护人员）
+
+**范围说明**：
+
+---
+
+## 二、功能需求
+
+### 2.1 （功能模块名称）
+
+#### FR-001: （功能名称）
+（描述该功能的具体行为和预期结果）
+
+**触发条件**：
+
+**主流程**：
+
+**异常处理**：
+
+##### FR-001-01: （子功能名称）
+（详细描述该子功能，或该功能在特定场景下的行为细节）
+
+### 2.2 （功能模块名称）
+
+#### FR-002: （功能名称）
+（描述该功能的具体行为和预期结果）
+
+---
+
+## 三、非功能需求
+
+### 3.1 实时性要求
+
+#### NFR-001: 任务响应时间
+- 关键中断响应时间 ≤ ____ μs
+- 控制周期 ≤ ____ ms
+- 最坏情况执行时间（WCET）：____
+
+#### NFR-002: 时间确定性
+- 系统调度抖动 ≤ ____ μs
+- 实时性等级：（硬实时 / 软实时）
+
+### 3.2 资源约束
+
+#### NFR-003: 存储资源
+- Flash / ROM 使用上限：____ KB（总 ____ KB，占用率 ≤ ____%）
+- RAM 使用上限：____ KB（总 ____ KB，占用率 ≤ ____%）
+- 堆栈深度最大值：____ Bytes
+
+#### NFR-004: 功耗要求
+- 正常运行功耗 ≤ ____ mW
+- 低功耗模式功耗 ≤ ____ μW
+- 电池续航（如适用）≥ ____ 小时
+
+### 3.3 可靠性与安全
+
+#### NFR-005: 系统可靠性
+- MTBF ≥ ____ 小时
+- 看门狗超时恢复机制
+- 掉电保护与数据完整性
+
+#### NFR-006: 功能安全（如适用）
+- 安全等级目标：（SIL / ASIL 等级）
+- 故障检测覆盖率 ≥ ____%
+
+#### NFR-007: 信息安全（如适用）
+- 固件加密与签名验证
+- 安全启动（Secure Boot）
+- 通信加密：
+
+### 3.4 环境适应性
+
+#### NFR-008: 工作环境
+- 工作温度范围：____ ~ ____°C
+- 存储温度范围：____ ~ ____°C
+- 湿度范围：
+- 振动 / 冲击等级：（如适用）
+
+#### NFR-009: EMC 要求
+- 满足标准：（例：IEC 61000 / FCC Part 15 / CE）
+
+---
+
+## 四、设计要求
+
+### 4.1 硬件平台
+
+#### DR-001: 处理器与内存
+- CPU / MCU：型号、主频、核数
+- RAM：类型、容量、速率
+- Flash / ROM：类型、容量
+- 外部存储（如需）：
+
+#### DR-002: 通信接口
+
+| 接口 | 协议 | 速率 | 用途 |
+|------|------|------|------|
+| UART | | | |
+| SPI | | | |
+| I2C | | | |
+| CAN | | | |
+| Ethernet / Wi-Fi | | | |
+
+#### DR-003: 外设与传感器
+
+| 外设 / 传感器 | 接口 | 精度 / 规格 | 用途 |
+|--------------|------|------------|------|
+| | | | |
+
+### 4.2 软件架构
+
+#### DR-004: 整体软件架构
+（描述 BSP / HAL / 中间件 / 应用层的分层结构）
+
+#### DR-005: 任务 / 线程划分（RTOS 适用）
+
+| 任务名 | 优先级 | 周期 / 触发方式 | 堆栈大小 | 职责 |
+|--------|--------|----------------|----------|------|
+| | | | | |
+
+#### DR-006: 中断设计
+
+| 中断源 | 优先级 | 响应时间要求 | 处理逻辑 |
+|--------|--------|------------|----------|
+| | | | |
+
+### 4.3 数据设计
+
+#### DR-007: 数据存储结构
+- NVM 数据分区：（描述 Flash 分区布局）
+- 配置参数存储格式：
+- 日志存储策略：
+
+#### DR-008: 通信协议设计
+- 应用层协议：（例：Modbus / CANopen / MQTT / 自定义）
+- 帧格式定义：
+- 错误检测与重传机制：
+
+### 4.4 引导与更新
+
+#### DR-009: Bootloader
+- 引导流程：
+- 双分区 OTA 更新：（是 / 否）
+- 回滚策略：
+
+#### DR-010: 固件更新（OTA / 本地）
+- 更新触发方式：
+- 更新包完整性验证：
+- 更新失败处理：
+
+---
+
+## 五、接口要求
+
+### 5.1 人机接口（HMI）
+
+#### UIR-001: 显示接口
+- 显示类型：（LCD / OLED / 数码管 / 无）
+- 分辨率 / 尺寸：
+- 刷新率要求：
+
+#### UIR-002: 输入接口
+- 输入方式：（按键 / 触摸屏 / 旋钮 / 语音）
+- 按键防抖时间 ≤ ____ ms
+
+#### UIR-003: 状态指示
+- LED 指示灯数量及含义：
+- 蜂鸣器 / 告警输出：
+
+### 5.2 外部系统接口
+
+#### UIR-004: 上位机 / 云平台接口
+- 通信方式：
+- 数据上报周期：
+- 远程控制指令集：
+
+---
+
+## 六、约束条件
+
+### 6.1 硬件约束
+- PCB 尺寸限制：
+- 供电电压：
+- BOM 成本目标：
+
+### 6.2 合规与认证
+- 需通过认证：（例：CE / FCC / UL / IEC 62443）
+- 行业标准：（例：IEC 61508 / ISO 26262 / DO-178C）
+
+### 6.3 资源约束
+- 开发团队规模：
+- 关键里程碑：
+
+---
+
+## 七、验收标准
+
+### 7.1 功能验收
+- 所有 FR 条目测试用例通过率 100%
+- 硬件在环（HIL）测试通过
+
+### 7.2 性能验收
+- 满足第三章实时性、资源、功耗指标
+- 压力测试（连续运行 ____ 小时无异常）
+
+### 7.3 安全验收
+- 功能安全分析（FMEA / FTA）完成（如适用）
+- 信息安全测试通过（如适用）
+
+### 7.4 交付物清单
+- [ ] 固件二进制文件（含版本信息）
+- [ ] 源代码（含单元测试）
+- [ ] 硬件设计文件（原理图 / PCB，如适用）
+- [ ] 软件设计说明书
+- [ ] 测试报告
+- [ ] 用户 / 维护手册
+`;
+
+// ── Template selector ─────────────────────────────────────────────────────────
+
+function getTemplate(type: SpecTemplateType, title: string): string {
+  switch (type) {
+    case 'web':      return WEB_APP_TEMPLATE(title);
+    case 'desktop':  return DESKTOP_APP_TEMPLATE(title);
+    case 'windows':  return WINDOWS_APP_TEMPLATE(title);
+    case 'embedded': return EMBEDDED_APP_TEMPLATE(title);
+  }
+}
+
+// ── File helpers ──────────────────────────────────────────────────────────────
+
+function getWorkspaceRoot(): string | null {
+  const folders = vscode.workspace.workspaceFolders;
+  return folders?.[0]?.uri.fsPath ?? null;
+}
+
+function getSpecDir(root: string): string {
+  return path.join(root, '.speccraft');
+}
+
+function buildFrontmatter(meta: SpecMeta): string {
+  return `---
+specId: ${meta.specId}
+title: ${meta.title}
+version: ${meta.version}
+created: ${meta.created}
+updated: ${meta.updated}
+---\n\n`;
+}
+
+function parseFrontmatter(content: string): { meta: Partial<SpecMeta>; body: string } {
+  const match = content.match(/^---\n([\s\S]*?)\n---\n\n?([\s\S]*)$/);
+  if (!match) return { meta: {}, body: content };
+
+  const fmText = match[1];
+  const body = match[2];
+  const meta: Partial<SpecMeta> = {};
+
+  for (const line of fmText.split('\n')) {
+    const [key, ...rest] = line.split(':');
+    if (key && rest.length) {
+      const value = rest.join(':').trim();
+      (meta as Record<string, string>)[key.trim()] = value;
+    }
+  }
+
+  return { meta, body };
+}
+
+// ── SpecFileProvider ──────────────────────────────────────────────────────────
+
 export class SpecFileProvider {
   async ensureSpecDir(): Promise<string | null> {
     const root = getWorkspaceRoot();
@@ -379,7 +1037,7 @@ export class SpecFileProvider {
     }
   }
 
-  async createSpec(title: string): Promise<SpecFile> {
+  async createSpec(title: string, templateType: SpecTemplateType = 'web'): Promise<SpecFile> {
     const specDir = await this.ensureSpecDir();
     if (!specDir) throw new Error('No workspace folder open');
 
@@ -389,14 +1047,14 @@ export class SpecFileProvider {
     const now = new Date().toISOString();
 
     const meta: SpecMeta = { specId, title, version: '1.0.0', created: now, updated: now };
-    const mdContent = buildFrontmatter(meta) + DEFAULT_MD_TEMPLATE(title);
+    const mdContent = buildFrontmatter(meta) + getTemplate(templateType, title);
 
     await fs.writeFile(mdPath, mdContent, 'utf-8');
 
     return { specId, title, version: '1.0.0', mdPath, created: now, updated: now };
   }
 
-  async createSpecAtPath(mdPath: string): Promise<SpecFile> {
+  async createSpecAtPath(mdPath: string, templateType: SpecTemplateType = 'web'): Promise<SpecFile> {
     const dir = path.dirname(mdPath);
     await fs.mkdir(dir, { recursive: true });
 
@@ -406,7 +1064,7 @@ export class SpecFileProvider {
     const now = new Date().toISOString();
 
     const meta: SpecMeta = { specId, title, version: '1.0.0', created: now, updated: now };
-    const content = buildFrontmatter(meta) + DEFAULT_MD_TEMPLATE(title);
+    const content = buildFrontmatter(meta) + getTemplate(templateType, title);
 
     await fs.writeFile(mdPath, content, 'utf-8');
     return { specId, title, version: '1.0.0', mdPath, created: now, updated: now };
@@ -420,7 +1078,8 @@ export class SpecFileProvider {
     const uri = vscode.Uri.file(specFile.mdPath);
     const doc = await vscode.workspace.openTextDocument(uri);
 
-    const headingPattern = new RegExp(`^#{4}\\s+${requirementId}:`);
+    // Match both #### parent and ##### child requirement headings
+    const headingPattern = new RegExp(`^#{4,5}\\s+${requirementId}:`);
     let headingLine = -1;
     for (let i = 0; i < doc.lineCount; i++) {
       if (headingPattern.test(doc.lineAt(i).text)) {
