@@ -131,9 +131,15 @@ function renumberRequirementsInText(text: string, prefix: string): string {
  *   #### PREFIX-NNN:     → sequential, 3-digit zero-padded, per prefix
  *   ##### PREFIX-NNN-MM: → sequential within parent, 2-digit zero-padded
  * Heading depth, order, title text, and body content are never modified.
+ *
+ * Key design: we use line-index as the map key (not the old ID string) so that
+ * duplicate IDs (e.g. two #### FR-001 headings) are handled correctly in a
+ * single pass — each occurrence gets its own sequential assignment.
+ * Child headings are attached to the most recently seen parent heading via
+ * `currentParentNewId`, which also handles children whose stated parent ID
+ * has been renumbered.
  */
 function renumberAllRequirements(text: string, eol: string): string {
-  // Strip \r so we can work with plain \n lines regardless of original EOL
   const lines = text.split('\n').map(l => l.replace(/\r$/, ''));
 
   const PFX = 'FR|NFR|DR|UIR';
@@ -142,47 +148,55 @@ function renumberAllRequirements(text: string, eol: string): string {
 
   const parentCounters: Record<string, number> = {};
   const childCounters:  Record<string, number> = {};
-  const oldToNew = new Map<string, string>();
+  const lineNewId = new Map<number, string>(); // line index → assigned new ID
+  let currentParentNewId: string | null = null;
 
-  // Pass 1 — build old → new mapping in document order
-  for (const line of lines) {
+  // Pass 1 — assign IDs by document position, not by old ID value
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
     const pm = line.match(parentRe);
     if (pm) {
-      const oldId = pm[2];
-      const prefix = oldId.replace(/-\d+$/, '');
+      const prefix = pm[2].replace(/-\d+$/, '');
       parentCounters[prefix] = (parentCounters[prefix] ?? 0) + 1;
       const newId = `${prefix}-${String(parentCounters[prefix]).padStart(3, '0')}`;
-      if (oldId !== newId) { oldToNew.set(oldId, newId); }
+      lineNewId.set(i, newId);
+      currentParentNewId = newId;
       continue;
     }
+
     const cm = line.match(childRe);
     if (cm) {
-      const oldChildId  = cm[2];
-      const oldParentId = oldChildId.replace(/-\d+$/, '');
-      const newParentId = oldToNew.get(oldParentId) ?? oldParentId;
-      childCounters[newParentId] = (childCounters[newParentId] ?? 0) + 1;
-      const newChildId = `${newParentId}-${String(childCounters[newParentId]).padStart(2, '0')}`;
-      if (oldChildId !== newChildId) { oldToNew.set(oldChildId, newChildId); }
+      // Attach to the most recently seen #### parent (handles mismatched parent IDs)
+      const parentId = currentParentNewId ?? cm[2].replace(/-\d+$/, '');
+      childCounters[parentId] = (childCounters[parentId] ?? 0) + 1;
+      const newChildId = `${parentId}-${String(childCounters[parentId]).padStart(2, '0')}`;
+      lineNewId.set(i, newChildId);
     }
   }
 
-  if (oldToNew.size === 0) { return text; }
+  // Pass 2 — rewrite only heading lines whose ID actually changed
+  let changed = false;
+  const result = lines.map((line, i) => {
+    const newId = lineNewId.get(i);
+    if (newId === undefined) { return line; }
 
-  // Pass 2 — apply replacements line by line
-  const result = lines.map(line => {
     const pm = line.match(parentRe);
     if (pm) {
-      const newId = oldToNew.get(pm[2]);
-      return newId ? `${pm[1]}${newId}${pm[3]}` : line;
+      if (pm[2] === newId) { return line; }
+      changed = true;
+      return `${pm[1]}${newId}${pm[3]}`;
     }
     const cm = line.match(childRe);
     if (cm) {
-      const newChildId = oldToNew.get(cm[2]);
-      return newChildId ? `${cm[1]}${newChildId}${cm[3]}` : line;
+      if (cm[2] === newId) { return line; }
+      changed = true;
+      return `${cm[1]}${newId}${cm[3]}`;
     }
     return line;
   });
 
+  if (!changed) { return text; } // caller checks result === text for "no change"
   return result.join(eol);
 }
 
